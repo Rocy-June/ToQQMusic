@@ -16,43 +16,47 @@
 
 > [!WARNING]
 > 此项目与官方无关，接口并非官方公开提供。此项目仅使用 QQ 音乐接口，私以为没有侵犯相关公司权益。
-> 
+>
 > 此项目系个人项目，仅供学习参考，请勿用于非法用途，不保证稳定性，亦不保证长期维护。
 
 ## 特点
+
 - 保留原始歌单顺序
 - 自由选择每首歌的匹配结果
 
 ## 缺陷
+
 - 即使有完全匹配的结果，也必须手动选择
 
 ## 使用方式
 
-1. [获取歌曲列表](docs/Export.md)，以 UTF-8 编码导出为文本文件：
+1. [获取歌曲列表](docs/Export.md)，以 `UTF-8` 编码导出为文本文件：
 
-```plain
-歌曲名称1 - 歌手1
-歌曲名称2 - 歌手2
-歌曲名称3 - 歌手3, 歌手4
-歌曲名称4 - 歌手4/歌手5
-```
+   ```plain
+   歌曲名称1 - 歌手1
+   歌曲名称2 - 歌手2
+   歌曲名称3 - 歌手3, 歌手4
+   歌曲名称4 - 歌手4/歌手5
+   ```
 
 2. 运行此脚本，生成默认配置文件
 
-3. 编辑配置文件，填入 [Cookies 和 QQ音乐歌单ID](docs/QQProps.md)
+3. 编辑[配置文件](docs/config.md)，填入 [Cookies 和 QQ音乐歌单ID](docs/QQProps.md)
 
 4. 再次运行，输入歌单列表，开始导入
 
 5. 每次选择歌曲后，运行目录下将生成 `lastLeft.txt`，存储剩余未导入歌曲，便于断点继续
 
 ## 源码启动
+
 ```shell
-$ yarn
-$ yarn run start
+yarn
+yarn run start
 ```
 
 ## 构建二进制文件（已过时）
+
 ```shell
-$ pnpm i -g pkg
-$ pkg -t node16-win-x64 -C GZip index.js -o dist/to-qqmusic.exe
+pnpm i -g pkg
+pkg -t node16-win-x64 -C GZip index.js -o dist/to-qqmusic.exe
 ```
