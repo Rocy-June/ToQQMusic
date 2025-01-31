@@ -16,7 +16,7 @@ const loadSongList = async () => {
       },
     ]);
     let current_file = answers.current_file.replace(/^"|"$/g, "");
-    let file_contents = fs.readFileSync(current_file, "utf8");
+    let file_contents = fs.readFileSync(current_file, "utf8").trim();
 
     return file_contents.split("\n");
   } catch (error) {
@@ -61,17 +61,13 @@ const auto_match_funcs = {
   rate: match_funcs.rateMatch,
 };
 
-const choicesConvert = (full_name, choices) => {
+const choicesConvert = (full_name, choices, config) => {
   let match_mid = -1;
   let max_weight = 0;
   if (config.auto_match_mode) {
-    if (config.auto_match_mode == "first") {
-      match_mid = choices[0].value;
-    }
-
     let match_func = auto_match_funcs[config.auto_match_mode];
     for (let i = 0; i < choices.length; i++) {
-      let calc_weight = match_func(full_name, choices[i].name);
+      let calc_weight = match_func(full_name, choices[i].name, i);
 
       if (config.auto_match_mode == "word") {
         choices[i].name = `(${calc_weight.toString().padStart(3, " ")}) ${
@@ -79,7 +75,8 @@ const choicesConvert = (full_name, choices) => {
         }`;
       } else if (
         config.auto_match_mode == "rate" ||
-        config.auto_match_mode == "word_rate"
+        config.auto_match_mode == "word_rate" ||
+        config.auto_match_mode == "word_rate_ex"
       ) {
         choices[i].name = `(${calc_weight.toFixed(1).padStart(5, " ")}%) ${
           choices[i].name
@@ -101,8 +98,15 @@ const choicesConvert = (full_name, choices) => {
 
 const debugChoicesConvert = (full_name, choices, config) => {
   let match_mid = -1;
-  let max_weight = { word: 0, word_rate: 0, word_rate_ex: 0, rate: 0 };
+  let max_weights = { word: 0, word_rate: 0, word_rate_ex: 0, rate: 0 };
   let test_arr = ["word", "word_rate", "word_rate_ex", "rate"];
+
+  /*
+    text: debug权重文字, word/word_rate/word_rate_ex/rate: 该项对于每种模式的权重值
+    [
+      {text: "", word: 0, word_rate: 0, word_rate_ex: 0, rate: 0},
+    ]
+  */
   let debug_arr = [];
   for (let i = 0; i < test_arr.length; i++) {
     let match_func = auto_match_funcs[test_arr[i]];
@@ -127,24 +131,38 @@ const debugChoicesConvert = (full_name, choices, config) => {
           .padStart(5, " ")}%) `;
       }
 
-      if (calc_weight > max_weight[test_arr[i]]) {
-        max_weight[test_arr[i]] = calc_weight;
+      if (calc_weight > max_weights[test_arr[i]]) {
+        max_weights[test_arr[i]] = calc_weight;
         match_mid = choices[j].value;
       }
     }
   }
 
   for (let i = 0; i < choices.length; i++) {
-    choices[i].name = `${
-      debug_arr[i][config.auto_match_mode] == max_weight[config.auto_match_mode]
-        ? "o"
-        : "x"
-    } ${debug_arr[i].text}${choices[i].name}`;
+    // 如果 当前项权重等于该模式的最大权重(匹配该项是当前的最佳选择), 且 最大权重大于设定阈值, 则 标记为最佳匹配项
+    let best_match_flag = "x";
+    if (
+      debug_arr[i][config.auto_match_mode] ==
+        max_weights[config.auto_match_mode] &&
+      config.auto_match_weight < max_weights[config.auto_match_mode]
+    ) {
+      best_match_flag = "o";
+    }
+
+    // 如果 当前项权重大于设定阈值, 则 标记为匹配项
+    let match_flag = " ";
+    if (debug_arr[i][config.auto_match_mode] > config.auto_match_weight) {
+      match_flag = "!";
+    }
+
+    choices[
+      i
+    ].name = `${best_match_flag} ${match_flag} ${debug_arr[i].text}${choices[i].name}`;
   }
 
   return {
     match_mid: match_mid,
-    max_weight: max_weight,
+    max_weight: max_weights[config.auto_match_mode],
   };
 };
 
@@ -167,7 +185,7 @@ const chooseSong = async (full_name, config) => {
       config
     ));
   } else {
-    ({ match_mid, max_weight } = choicesConvert(full_name, choices));
+    ({ match_mid, max_weight } = choicesConvert(full_name, choices, config));
   }
 
   // 当自动匹配结果大于设定阈值时, 直接返回匹配结果
@@ -208,8 +226,8 @@ const addSongToPlaylist = async (mid, dirid) => {
       console.log(res);
     }
   } catch (error) {
-    console.error("发生错误: ", error.stack);
-    pause();
+    console.error("发生错误: ", error.message);
+    await pause();
 
     return false;
   }
@@ -224,31 +242,41 @@ const main = async () => {
 
   // 获取本地歌曲列表
   let songList = await loadSongList();
-  songList = songList.reverse();
 
   // 设置请求Cookie
   qq_music.setCookie(config.cookies);
 
   // 遍历处理歌曲列表
   for (let i = 0; i < songList.length; i++) {
-    console.clear();
+    console.log(`\n  ${i + 1} / ${songList.length}\n`);
 
     // 选择匹配歌曲
     let mid = await chooseSong(songList[i], config);
     // 未找到匹配项, 记录歌曲名到 errorList.txt
     if (mid == 0) {
+      if (!fs.existsSync("errorList.txt")) {
+        fs.writeFileSync("errorList.txt", "");
+      }
+
       let error_content = fs.readFileSync("errorList.txt", "utf8");
 
-      let error_array = error_content.split("\n");
+      let error_array = error_content
+        .split("\n")
+        .filter((item) => item.trim() !== "");
       error_array.push(songList[i]);
 
       // 去重
       error_array = [...new Set(error_array)];
+      error_array = error_array.filter((item) => item.trim() !== "");
 
       fs.writeFileSync("errorList.txt", error_array.join("\n"));
+
+      continue;
     }
 
     if (!config.debug_mode) {
+      console.log("mid:", mid, "config.dirid:", config.dirid);
+
       await addSongToPlaylist(mid, config.dirid);
 
       fs.writeFileSync("lastLeft.txt", songList.slice(i + 1).join("\n"));

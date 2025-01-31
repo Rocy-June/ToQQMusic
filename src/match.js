@@ -1,13 +1,9 @@
 // 仅匹配字符相等性 => Number(相差数量, 非正整数)
 const wordMatch = (name1, name2, index) => {
-  console.log("before", name1, name2);
   name1 = name1.replace(/\s/g, "").toLowerCase();
   name2 = name2.replace(/\s/g, "").toLowerCase();
-  console.log("after", name1, name2);
 
   let count = Math.abs(name1.length - name2.length);
-  console.log("count", count);
-  console.log("lengths", name1.length, name2.length);
   let min_length = Math.min(name1.length, name2.length);
   for (let i = 0; i < min_length; i++) {
     if (name1[i] != name2[i]) {
