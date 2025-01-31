@@ -63,6 +63,7 @@ const auto_match_funcs = {
 
 const choicesConvert = (full_name, choices, config) => {
   let match_mid = -1;
+  let match_name = "";
   let max_weight = 0;
   if (config.auto_match_mode) {
     let match_func = auto_match_funcs[config.auto_match_mode];
@@ -86,9 +87,12 @@ const choicesConvert = (full_name, choices, config) => {
       if (calc_weight > max_weight) {
         max_weight = calc_weight;
         match_mid = choices[i].value;
+        match_name = choices[i].name;
       }
     }
   }
+
+  console.log("自动匹配: ", match_name);
 
   return {
     match_mid: match_mid,
@@ -248,7 +252,7 @@ const main = async () => {
 
   // 遍历处理歌曲列表
   for (let i = 0; i < songList.length; i++) {
-    console.log(`\n  ${i + 1} / ${songList.length}\n`);
+    console.log(`\n##### (${i + 1} / ${songList.length}) ${songList[i]}\n`);
 
     // 选择匹配歌曲
     let mid = await chooseSong(songList[i], config);
